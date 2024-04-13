@@ -5,7 +5,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-class TPSMapGen:
+class TSPMapGen:
     """
     Class for generating a distance matrix for the Traveling Salesman Problem.
 
@@ -102,10 +102,10 @@ class TPSMapGen:
 
     def calculate_distance_matrix(self, points):
         """
-        Calculates a distance matrix for a list of 2D points.
+        Calculates a distance matrix for a list of points.
 
         Args:
-            points (list): A list of 2D points.
+            points (list): A list of points.
 
         Returns:
             numpy.ndarray: A 2D array representing the distance matrix.
@@ -150,7 +150,7 @@ def generate_distance_matrix(size=10):
     Returns:
         numpy.ndarray: A 2D array representing the distance matrix.
     """
-    tps_map_gen = TPSMapGen()
+    tps_map_gen = TSPMapGen()
     points = []
     for _ in range(size):
         point = tps_map_gen.place_point()
