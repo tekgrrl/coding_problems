@@ -164,3 +164,24 @@ if __name__ == "__main__":
     print(dmatrix)
 
     visualize_distance_matrix(dmatrix)
+
+
+def test_triangle_inequality(distance_matrix):
+    """
+    Tests the triangle inequality for three random points in the distance matrix.
+
+    Args:
+        distance_matrix (numpy.ndarray): A 2D numpy array containing the distances between points.
+
+    Returns:
+        bool: True if the triangle inequality holds for the three points, False otherwise.
+    """
+    size = distance_matrix.shape[0]
+    rng = np.random.default_rng()
+    points = rng.choice(size, 3, replace=False)
+    a, b, c = points
+    return (
+        distance_matrix[a, b] + distance_matrix[b, c] >= distance_matrix[a, c]
+        and distance_matrix[a, c] + distance_matrix[c, b] >= distance_matrix[a, b]
+        and distance_matrix[b, a] + distance_matrix[a, c] >= distance_matrix[b, c]
+    )
