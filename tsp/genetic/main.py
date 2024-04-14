@@ -1,7 +1,8 @@
 """This module implements a genetic algorithm to solve the Travelling Salesman Problem."""
 
 import numpy as np
-from tsp_map_gen import generate_distance_matrix
+from tsp.utils.dst_matrx_helpers import generate_distance_matrix
+
 
 # Notes:
 #   Implementation of a genetic algorithm to solve the Travelling Salesman Problem
@@ -10,7 +11,7 @@ from tsp_map_gen import generate_distance_matrix
 
 
 def create_population(population_size, city_matrix):
-    """
+    """cd ..
     Create a population of random chromosomes.
 
     Args:
@@ -29,7 +30,7 @@ def create_population(population_size, city_matrix):
     return population
 
 
-city_matrix = generate_distance_matrix(10)
-chromosomes = create_population(10, city_matrix)
+city_matrix_data = generate_distance_matrix(10)
+chromosomes = create_population(10, city_matrix_data)
 
 print(chromosomes)

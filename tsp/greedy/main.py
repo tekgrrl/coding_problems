@@ -1,5 +1,5 @@
 import numpy as np
-from tsp_map_gen import generate_distance_matrix
+from tsp.utils.dst_matrx_helpers import generate_distance_matrix
 
 
 def solve_tsp(N):
