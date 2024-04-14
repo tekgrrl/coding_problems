@@ -7,8 +7,8 @@ __pycache__/
 *.so
 
 # Distribution / packaging
-.Python
 .history
+.Python
 build/
 develop-eggs/
 dist/
@@ -159,3 +159,17 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# Virtualenv
+# http://iamzed.com/2009/05/07/a-primer-on-virtualenv/
+.Python
+[Bb]in
+[Ii]nclude
+[Ll]ib
+[Ll]ib64
+[Ll]ocal
+[Ss]cripts
+pyvenv.cfg
+.venv
+pip-selfcheck.json
+tsp/share/man/man1/ttx.1
