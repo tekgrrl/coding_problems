@@ -115,6 +115,7 @@ class TSPMapGen:
         x_diff = x_coords[:, np.newaxis] - x_coords
         y_diff = y_coords[:, np.newaxis] - y_coords
         distance_matrix = np.sqrt(x_diff**2 + y_diff**2)
+        distance_matrix = np.round(distance_matrix * 100, 2)
         return distance_matrix
 
 
@@ -150,7 +151,7 @@ def generate_distance_matrix(size=10):
     Returns:
         numpy.ndarray: A 2D array representing the distance matrix.
     """
-    tps_map_gen = TSPMapGen()
+    tps_map_gen = TSPMapGen(size)
     points = []
     for _ in range(size):
         point = tps_map_gen.place_point()

@@ -138,16 +138,44 @@ def two_point_crossover(parent1, parent2):
     return child1, child2
 
 
+def run_genetic_algorithm(population_size, city_matrix, generations):
+    """
+    Run a genetic algorithm to solve the Travelling Salesman Problem.
+    Args:
+        population_size (int): The size of the population.
+        city_matrix (numpy.ndarray): The matrix representing the distances between cities.
+        generations (int): The number of generations to run the algorithm.
+    Returns:
+        list: A list of the best fitness values for each generation.
+    """
+    population = create_population(population_size, city_matrix)
+    fitnesses = get_fitnesses(population, city_matrix)
+    best_fitnesses = [max(fitnesses)]
+    for _ in range(generations):
+        roulette_wheel = create_roulette_wheel(population, fitnesses)
+        new_population = []
+        for _ in range(population_size // 2):
+            parent1 = select_chromosome(roulette_wheel, population)
+            parent2 = select_chromosome(roulette_wheel, population)
+            child1, child2 = two_point_crossover(parent1, parent2)
+            new_population.extend([child1, child2])
+        population = new_population
+        fitnesses = get_fitnesses(population, city_matrix)
+        best_fitnesses.append(max(fitnesses))
+    return best_fitnesses
+
+
 if __name__ == "__main__":
     city_matrix_data = generate_distance_matrix(10)
-    population = create_population(5, city_matrix_data)
+    # population = create_population(5, city_matrix_data)
 
-    fitnesses = get_fitnesses(population, city_matrix_data)
+    # fitnesses = get_fitnesses(population, city_matrix_data)
 
-    # Roulette wheel selection
-    roulette_wheel = create_roulette_wheel(population, fitnesses)
-    selection1 = select_chromosome(roulette_wheel, population)
-    selection2 = select_chromosome(roulette_wheel, population)
-    print(selection1, selection2)
-    crossover_result = two_point_crossover(selection1, selection2)
-    print(crossover_result)
+    # # Roulette wheel selection
+    # roulette_wheel = create_roulette_wheel(population, fitnesses)
+    # selection1 = select_chromosome(roulette_wheel, population)
+    # selection2 = select_chromosome(roulette_wheel, population)
+    # print(selection1, selection2)
+    # crossover_result = two_point_crossover(selection1, selection2)
+    result = run_genetic_algorithm(10, city_matrix_data, 10)
+    print(result)

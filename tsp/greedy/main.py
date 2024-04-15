@@ -1,7 +1,10 @@
 """This module implements a greedy algorithm to solve the Travelling Salesman Problem."""
 
 import numpy as np
-from tsp.utils.dst_matrx_helpers import generate_distance_matrix
+from tsp.utils.dst_matrx_helpers import (
+    generate_distance_matrix,
+    visualize_distance_matrix,
+)
 
 
 def solve_tsp(N):
@@ -33,18 +36,20 @@ def solve_tsp(N):
     city_distance_matrix = generate_distance_matrix(N)
 
     all_distances = []
+    results = {}
 
     # Outer loop, do for every city in order
     for i in range(N):
         # Per loop setup
         current_city = i
         visited_cities = []
+        distances = []
         total_distance = 0
         # Inner loop, do for every city except the last
         for _ in range(N - 1):
             row = np.copy(
                 city_distance_matrix[current_city]
-            )  # Deep copy of the row of distances for the currebt city
+            )  # Deep copy of the row of distances for the current city
             row[row == 0] = (
                 np.inf
             )  # Set the diagonal to infinity to avoid selecting the same city
@@ -52,20 +57,39 @@ def solve_tsp(N):
                 np.inf
             )  # Set the visited cities to infinity to avoid selecting them
             closest_city = np.argmin(row)  # Find the index of the closest city
-            min_distance = row[closest_city]  # Find the distance to the closest city
+            closest_city_distance = row[
+                closest_city
+            ]  # Find the distance to the closest city
 
-            total_distance = total_distance + min_distance
-            visited_cities.append(current_city)
+            distances.append(closest_city_distance)  # for logging
+
+            total_distance = total_distance + closest_city_distance
+            visited_cities.append(
+                current_city
+            )  # Add the current city to the list of visited cities
             current_city = closest_city
 
+        total_distance = (
+            total_distance + city_distance_matrix[current_city, i]
+        )  # Return to the starting city given by column i of the row of the current city
+
+        distances.append(city_distance_matrix[current_city, i])  # for logging
+
+        results[i] = {
+            "total_distance": round(total_distance),
+            "visited_cities": visited_cities,
+            "distances": distances,
+        }
         all_distances.append(total_distance)
 
-    min_distance = min(all_distances)
+    closest_city_distance = min(all_distances)
 
-    return min_distance
+    [print(results[i]) for i in results]
+    return closest_city_distance
 
 
 if __name__ == "__main__":
-    N = 1000  # Number of cities
+    N = 10  # Number of cities
     shortest_distance = solve_tsp(N)
-    print(f"Shortest tour distance: {round(shortest_distance * 100)} miles")
+    print(f"Shortest tour distance: {round(shortest_distance)} miles")
+    visualize_distance_matrix(generate_distance_matrix(N))
