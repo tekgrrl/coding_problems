@@ -1,3 +1,5 @@
+"""This module implements a greedy algorithm to solve the Travelling Salesman Problem."""
+
 import numpy as np
 from tsp.utils.dst_matrx_helpers import generate_distance_matrix
 
