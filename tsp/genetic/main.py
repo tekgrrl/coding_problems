@@ -1,6 +1,8 @@
 """This module implements a genetic algorithm to solve the Travelling Salesman Problem."""
 
+import random
 import numpy as np
+import matplotlib.pyplot as plt
 from tsp.utils.dst_matrx_helpers import (
     generate_distance_matrix,
     visualize_distance_matrix,
@@ -109,7 +111,8 @@ def crossover(parent1, parent2):
 
 
 def mutate(slice, rng):
-    if rng.random() < 0.25:  # Mutation chance
+    mutation_frequency = 0.25  # TUNABLE PARAMETER
+    if rng.random() < mutation_frequency:  # Mutation chance
         mutation_type = rng.choice(2)
         if mutation_type == 0:
             slice = slice[::-1]
@@ -120,10 +123,10 @@ def mutate(slice, rng):
 
 
 def two_point_crossover(parent1, parent2, rng):
-    size = len(parent1)
+    size = len(parent1)  # TUNABLE PARAMETER
     cx1, cx2 = sorted(rng.choice(size, 2, replace=False))
 
-    # Slices and mutate
+    # Slices and mutatez
     slice1 = mutate(parent2[cx1 : cx2 + 1], rng)
     slice2 = mutate(parent1[cx1 : cx2 + 1], rng)
 
@@ -143,6 +146,28 @@ def two_point_crossover(parent1, parent2, rng):
     fill_child(child2, parent2, cx1, cx2)
 
     return child1, child2
+
+
+def find_fittest_chromosome_in_population(population, city_matrix):
+    """
+    Find the fittest chromosome in the population.
+    """
+    fitnesses = [
+        determine_fitness(chromosome, city_matrix) for chromosome in population
+    ]
+    fittest_chromosome_index = np.argmax(fitnesses)
+    return population[fittest_chromosome_index]
+
+
+def find_least_fit_chromosome_in_population(population, city_matrix):
+    """
+    Find the least fit chromosome in the population.
+    """
+    fitnesses = [
+        determine_fitness(chromosome, city_matrix) for chromosome in population
+    ]
+    least_fit_chromosome_index = np.argmin(fitnesses)
+    return population[least_fit_chromosome_index]
 
 
 def two_point_crossover_with_mutation(parent1, parent2, rng):
@@ -200,10 +225,24 @@ def two_point_crossover_with_mutation(parent1, parent2, rng):
 def check_diversity(population):
     unique_chromosomes = {tuple(chromosome) for chromosome in population}
     diversity_ratio = len(unique_chromosomes) / len(population)
-    print(f"Population Diversity Ratio: {diversity_ratio:.2f}")
+    return diversity_ratio
 
 
-def run_genetic_algorithm(population_size, city_matrix, generations):
+def replace_with_elites(new_population, old_population, city_matrix, elite_count, rng):
+    sorted_old_population = sorted(
+        old_population, key=lambda x: determine_fitness(x, city_matrix), reverse=True
+    )
+    sorted_new_population = sorted(
+        new_population, key=lambda x: determine_fitness(x, city_matrix)
+    )
+    for i in range(elite_count):
+        sorted_new_population[i] = sorted_old_population[i]
+    # Ensure the new population is shuffled to maintain genetic diversity
+    rng.shuffle(sorted_new_population)
+    return sorted_new_population
+
+
+def run_genetic_algorithm(population_size, city_matrix, generations, logs):
     """
     Run a genetic algorithm to solve the Travelling Salesman Problem.
     Args:
@@ -228,9 +267,26 @@ def run_genetic_algorithm(population_size, city_matrix, generations):
             parent2 = select_chromosome(roulette_wheel, population, rng)
             child1, child2 = two_point_crossover(parent1, parent2, rng)
             new_population.extend([child1, child2])
-        population = new_population
-        check_diversity(population)
+        fittest = find_fittest_chromosome_in_population(population, city_matrix)
+        least_fit = find_least_fit_chromosome_in_population(new_population, city_matrix)
+
+        ELITE_COUNT = 3  # TUNABLE PARAMETER
+        diversity_ratio = check_diversity(new_population)
+        if diversity_ratio < 1.0:
+            # promoting elites
+            new_population = replace_with_elites(
+                new_population,
+                population,
+                city_matrix,
+                elite_count=ELITE_COUNT,
+                rng=rng,
+            )
+
         fitnesses = get_fitnesses(population, city_matrix)
+        # Log the best, worst and average fitness values
+        logs["best_fitness"].append(np.max(fitnesses))
+        logs["worst_fitness"].append(np.min(fitnesses))
+        logs["average_fitness"].append(np.mean(fitnesses))
 
     # should return the best chromosome and the total distance for that chromosome
     best_chromosome_idx = np.argmax(fitnesses)
@@ -256,10 +312,12 @@ def display_results(label, result, num_gens=None):
 
 
 if __name__ == "__main__":
-    N = 7  # Number of cities
-    num_gens_max = 30
+    num_cities = 7  # TUNABLE PARAMETER
+    num_gens = 30  # TUNABLE PARAMETER
+    logs = {"best_fitness": [], "worst_fitness": [], "average_fitness": []}
 
-    city_matrix_data = generate_distance_matrix(N, 300)
+    random_seed = 300  # TUNABLE PARAMETER
+    city_matrix_data = generate_distance_matrix(num_cities, random_seed)
     # population = create_population(5, city_matrix_data)
 
     # fitnesses = get_fitnesses(population, city_matrix_data)
@@ -270,10 +328,19 @@ if __name__ == "__main__":
     # selection2 = select_chromosome(roulette_wheel, population)
     # print(selection1, selection2)
     # crossover_result = two_point_crossover(selection1, selection2)
-    greedy_result = solve_tsp(N, city_matrix_data)
+    greedy_result = solve_tsp(num_cities, city_matrix_data)
     display_results("Greedy", greedy_result)
 
-    for num_gens in range(num_gens_max):
-        genetic_result = run_genetic_algorithm(N, city_matrix_data, num_gens)
-        display_results("Genetic", genetic_result, num_gens)
+    genetic_result = run_genetic_algorithm(num_cities, city_matrix_data, num_gens, logs)
+    display_results("Genetic", genetic_result, num_gens)
     # visualize_distance_matrix(city_matrix_data)
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(logs["best_fitness"], label="Best Fitness")
+    plt.plot(logs["average_fitness"], label="Average Fitness")
+    plt.plot(logs["worst_fitness"], label="Worst Fitness")
+    plt.xlabel("Generation")
+    plt.ylabel("Fitness")
+    plt.title("Fitness over Generations")
+    plt.legend()
+    plt.show()
