@@ -28,12 +28,44 @@ def create_population(population_size, city_matrix):
         list: A list of randomly generated chromosomes.
 
     """
-    rng = np.random.default_rng(12345)
+    rng = np.random.default_rng(12345)  # should use the same random seed everywhere
     population = []
     for i in range(population_size):
         chromosome = rng.permutation(len(city_matrix))
         population.append(chromosome)
     return population
+
+
+def create_bad_population(population_size, city_matrix):
+    """
+    This will create a population deliberately skewed towards bad chromosomes
+    It will be a smaller population than for the normal flow so
+    adjust the population size accordingly
+    """
+    # Create a population of chromosomes with the worst fitness values that we can find
+    rng = np.random.default_rng(12345)
+    temp_population = []
+    bad_population = []
+
+    for i in range(population_size):
+        chromosome = rng.permutation(len(city_matrix))
+        temp_population.append(chromosome)
+
+    overall_fitness = get_fitnesses(temp_population, city_matrix)
+
+    # calculate the sum of the fitness values and then normalize
+    total_fitness = sum(overall_fitness)
+    normalized_fitness = [fitness / total_fitness for fitness in overall_fitness]
+
+    # find the mean fitness value
+    mean_fitness = np.mean(normalized_fitness)
+
+    # find the worst fitness values and add them to bad_population
+    for i in range(len(normalized_fitness)):
+        if normalized_fitness[i] < mean_fitness:
+            bad_population.append(temp_population[i])
+
+    return bad_population
 
 
 def determine_fitness(chromosome, city_matrix):
@@ -83,6 +115,8 @@ def select_chromosome(roulette_wheel, population, rng):
     """
     random_number = rng.random()
     index = np.searchsorted(roulette_wheel, random_number)
+    # print(f"Random Number: {random_number}, Selected Index: {index}")
+
     return population[index]
 
 
@@ -261,28 +295,35 @@ def run_genetic_algorithm(population_size, city_matrix, generations, logs):
     fitnesses = get_fitnesses(population, city_matrix)
     for _ in range(generations):
         roulette_wheel = create_roulette_wheel(population, fitnesses)
+        # print(f"Roulette Wheel: {roulette_wheel}")
         new_population = []
         for _ in range(population_size // 2):
             parent1 = select_chromosome(roulette_wheel, population, rng)
             parent2 = select_chromosome(roulette_wheel, population, rng)
+            while np.array_equal(parent1, parent2):
+                parent2 = select_chromosome(roulette_wheel, population, rng)
             child1, child2 = two_point_crossover(parent1, parent2, rng)
             new_population.extend([child1, child2])
-        fittest = find_fittest_chromosome_in_population(population, city_matrix)
-        least_fit = find_least_fit_chromosome_in_population(new_population, city_matrix)
+        # fittest = find_fittest_chromosome_in_population(population, city_matrix)
+        # least_fit = find_least_fit_chromosome_in_population(new_population, city_matrix)
 
-        ELITE_COUNT = 3  # TUNABLE PARAMETER
+        elite_count = 4  # TUNABLE PARAMETER
         diversity_ratio = check_diversity(new_population)
-        if diversity_ratio < 1.0:
-            # promoting elites
-            new_population = replace_with_elites(
-                new_population,
-                population,
-                city_matrix,
-                elite_count=ELITE_COUNT,
-                rng=rng,
-            )
 
+        # promoting elites
         fitnesses = get_fitnesses(population, city_matrix)
+        # print(f"Average fitneses 1: {np.mean(fitnesses)}")
+        # print("Promoting elites")
+        new_population = replace_with_elites(
+            new_population,
+            population,
+            city_matrix,
+            elite_count=elite_count,
+            rng=rng,
+        )
+        population = new_population
+        fitnesses = get_fitnesses(population, city_matrix)
+        # print(f"Average fitneses 2: {np.mean(fitnesses)}")
         # Log the best, worst and average fitness values
         logs["best_fitness"].append(np.max(fitnesses))
         logs["worst_fitness"].append(np.min(fitnesses))
@@ -312,22 +353,13 @@ def display_results(label, result, num_gens=None):
 
 
 if __name__ == "__main__":
-    num_cities = 7  # TUNABLE PARAMETER
-    num_gens = 30  # TUNABLE PARAMETER
+    num_cities = 10  # TUNABLE PARAMETER
+    population_size = num_cities * 6  # TUNABLE PARAMETER
+    num_gens = 35  # TUNABLE PARAMETER
     logs = {"best_fitness": [], "worst_fitness": [], "average_fitness": []}
 
-    random_seed = 300  # TUNABLE PARAMETER
+    random_seed = 600  # TUNABLE PARAMETER
     city_matrix_data = generate_distance_matrix(num_cities, random_seed)
-    # population = create_population(5, city_matrix_data)
-
-    # fitnesses = get_fitnesses(population, city_matrix_data)
-
-    # # Roulette wheel selection
-    # roulette_wheel = create_roulette_wheel(population, fitnesses)
-    # selection1 = select_chromosome(roulette_wheel, population)
-    # selection2 = select_chromosome(roulette_wheel, population)
-    # print(selection1, selection2)
-    # crossover_result = two_point_crossover(selection1, selection2)
     greedy_result = solve_tsp(num_cities, city_matrix_data)
     display_results("Greedy", greedy_result)
 
