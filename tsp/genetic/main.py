@@ -1,12 +1,11 @@
 """This module implements a genetic algorithm to solve the Travelling Salesman Problem."""
 
-import select
 import numpy as np
-import matplotlib.pyplot as plt
 from tsp.utils.dst_matrx_helpers import (
     generate_distance_matrix,
     visualize_distance_matrix,
 )
+from tsp.greedy.main import solve_tsp
 
 
 # Notes:
@@ -42,9 +41,14 @@ def determine_fitness(chromosome, city_matrix):
     """
 
     total_distance = 0
-    # There are only n-1 edges in a tour
+    # These are the 9 edges we can loop over
     for i in range(len(chromosome) - 1):
         total_distance += city_matrix[chromosome[i], chromosome[i + 1]]
+
+    total_distance += city_matrix[
+        chromosome[-1], chromosome[0]
+    ]  # Add the final edge back to the starting city
+
     fitness = 1 / total_distance
 
     return fitness
@@ -71,15 +75,13 @@ def create_roulette_wheel(population, fitnesses):
     return wheel
 
 
-def select_chromosome(roulette_wheel, population):
+def select_chromosome(roulette_wheel, population, rng):
     """
     Select a chromosome from the population based on the roulette wheel.
     """
-    rng = np.random.default_rng()  # unseeded to provide random results
     random_number = rng.random()
-    for i, value in enumerate(roulette_wheel):
-        if random_number < value:
-            return population[i]
+    index = np.searchsorted(roulette_wheel, random_number)
+    return population[index]
 
 
 def crossover(parent1, parent2):
@@ -106,7 +108,44 @@ def crossover(parent1, parent2):
     return child1, child2
 
 
-def two_point_crossover(parent1, parent2):
+def mutate(slice, rng):
+    if rng.random() < 0.25:  # Mutation chance
+        mutation_type = rng.choice(2)
+        if mutation_type == 0:
+            slice = slice[::-1]
+        elif len(slice) > 1:
+            swap_idx = rng.integers(0, len(slice) - 1)
+            slice[swap_idx], slice[swap_idx + 1] = slice[swap_idx + 1], slice[swap_idx]
+    return slice
+
+
+def two_point_crossover(parent1, parent2, rng):
+    size = len(parent1)
+    cx1, cx2 = sorted(rng.choice(size, 2, replace=False))
+
+    # Slices and mutate
+    slice1 = mutate(parent2[cx1 : cx2 + 1], rng)
+    slice2 = mutate(parent1[cx1 : cx2 + 1], rng)
+
+    child1, child2 = [None] * size, [None] * size
+    child1[cx1 : cx2 + 1], child2[cx1 : cx2 + 1] = slice1, slice2
+
+    # Function to fill remaining spots in children
+    # TODO break out to separate function
+    def fill_child(child, parent, cx1, cx2):
+        fill_pos = (cx2 + 1) % size  # Start immediately after the copied segment
+        for gene in parent:
+            if gene not in child:  # Only add if not already in the child
+                child[fill_pos] = gene
+                fill_pos = (fill_pos + 1) % size  # Move to next position, wrap around
+
+    fill_child(child1, parent1, cx1, cx2)
+    fill_child(child2, parent2, cx1, cx2)
+
+    return child1, child2
+
+
+def two_point_crossover_with_mutation(parent1, parent2, rng):
     """
     Perform 2 point crossover between two parents to create two offspring.
     """
@@ -118,10 +157,30 @@ def two_point_crossover(parent1, parent2):
     child2 = [None] * size
 
     # Insert the slices from each parent into the opposite child
-    child1[cx1 : cx2 + 1], child2[cx1 : cx2 + 1] = (
-        parent2[cx1 : cx2 + 1],
-        parent1[cx1 : cx2 + 1],
-    )
+    # Insert the slices from each parent into the opposite child
+    slice1, slice2 = parent2[cx1 : cx2 + 1], parent1[cx1 : cx2 + 1]
+
+    # Mutation
+    # TODO break out to separate function
+    if rng.random() < 0.25:  # 25% chance of mutation
+        mutation_type = rng.choice(2)  # Choose between two types of mutation
+        if mutation_type == 0:  # Reverse the slice
+            slice1, slice2 = slice1[::-1], slice2[::-1]
+        else:  # Swap two adjacent elements
+            if len(slice1) > 1:  # Ensure there are at least two elements to swap
+                swap_idx = rng.integers(0, len(slice1) - 1)
+                slice1[swap_idx], slice1[swap_idx + 1] = (
+                    slice1[swap_idx + 1],
+                    slice1[swap_idx],
+                )
+            if len(slice2) > 1:  # Ensure there are at least two elements to swap
+                swap_idx = rng.integers(0, len(slice2) - 1)
+                slice2[swap_idx], slice2[swap_idx + 1] = (
+                    slice2[swap_idx + 1],
+                    slice2[swap_idx],
+                )
+
+    child1[cx1 : cx2 + 1], child2[cx1 : cx2 + 1] = slice1, slice2
 
     # Function to fill remaining spots in children
     def fill_child(child, parent, cx1, cx2):
@@ -138,6 +197,12 @@ def two_point_crossover(parent1, parent2):
     return child1, child2
 
 
+def check_diversity(population):
+    unique_chromosomes = {tuple(chromosome) for chromosome in population}
+    diversity_ratio = len(unique_chromosomes) / len(population)
+    print(f"Population Diversity Ratio: {diversity_ratio:.2f}")
+
+
 def run_genetic_algorithm(population_size, city_matrix, generations):
     """
     Run a genetic algorithm to solve the Travelling Salesman Problem.
@@ -146,27 +211,55 @@ def run_genetic_algorithm(population_size, city_matrix, generations):
         city_matrix (numpy.ndarray): The matrix representing the distances between cities.
         generations (int): The number of generations to run the algorithm.
     Returns:
-        list: A list of the best fitness values for each generation.
+        result object. This contains the best chromome and the total distance for that
+        chromosome.
     """
-    population = create_population(population_size, city_matrix)
+
+    rng = np.random.default_rng(12345)
+    population = create_population(
+        population_size, city_matrix
+    )  # Create the initial population
     fitnesses = get_fitnesses(population, city_matrix)
-    best_fitnesses = [max(fitnesses)]
     for _ in range(generations):
         roulette_wheel = create_roulette_wheel(population, fitnesses)
         new_population = []
         for _ in range(population_size // 2):
-            parent1 = select_chromosome(roulette_wheel, population)
-            parent2 = select_chromosome(roulette_wheel, population)
-            child1, child2 = two_point_crossover(parent1, parent2)
+            parent1 = select_chromosome(roulette_wheel, population, rng)
+            parent2 = select_chromosome(roulette_wheel, population, rng)
+            child1, child2 = two_point_crossover(parent1, parent2, rng)
             new_population.extend([child1, child2])
         population = new_population
+        check_diversity(population)
         fitnesses = get_fitnesses(population, city_matrix)
-        best_fitnesses.append(max(fitnesses))
-    return best_fitnesses
+
+    # should return the best chromosome and the total distance for that chromosome
+    best_chromosome_idx = np.argmax(fitnesses)
+    best_chromosome = population[best_chromosome_idx]
+    total_distance = 0
+    for i in range(len(best_chromosome) - 1):
+        total_distance += city_matrix[best_chromosome[i], best_chromosome[i + 1]]
+    total_distance += city_matrix[best_chromosome[-1], best_chromosome[0]]
+    return {
+        "chromosome": best_chromosome,
+        "total_distance": total_distance,
+    }
+
+
+def display_results(label, result, num_gens=None):
+    print()
+    if num_gens is not None:
+        print(f"{label} algorithm results (num_gens={num_gens}):")
+    else:
+        print(f"{label} algorithm results:")
+    print(f"Best chromosome: {result['chromosome']}")
+    print(f"Total distance: {result['total_distance']}")
 
 
 if __name__ == "__main__":
-    city_matrix_data = generate_distance_matrix(10)
+    N = 7  # Number of cities
+    num_gens_max = 30
+
+    city_matrix_data = generate_distance_matrix(N, 300)
     # population = create_population(5, city_matrix_data)
 
     # fitnesses = get_fitnesses(population, city_matrix_data)
@@ -177,5 +270,10 @@ if __name__ == "__main__":
     # selection2 = select_chromosome(roulette_wheel, population)
     # print(selection1, selection2)
     # crossover_result = two_point_crossover(selection1, selection2)
-    result = run_genetic_algorithm(10, city_matrix_data, 10)
-    print(result)
+    greedy_result = solve_tsp(N, city_matrix_data)
+    display_results("Greedy", greedy_result)
+
+    for num_gens in range(num_gens_max):
+        genetic_result = run_genetic_algorithm(N, city_matrix_data, num_gens)
+        display_results("Genetic", genetic_result, num_gens)
+    # visualize_distance_matrix(city_matrix_data)

@@ -7,7 +7,7 @@ from tsp.utils.dst_matrx_helpers import (
 )
 
 
-def solve_tsp(N):
+def solve_tsp(N, city_distance_matrix):
     """
     Solve the Traveling Salesman Problem (TSP) using a heuristic approach.
 
@@ -33,9 +33,6 @@ def solve_tsp(N):
     The function returns the shortest tour distance in rounded miles.
     """
 
-    city_distance_matrix = generate_distance_matrix(N)
-
-    all_distances = []
     results = {}
 
     # Outer loop, do for every city in order
@@ -46,7 +43,14 @@ def solve_tsp(N):
         distances = []
         total_distance = 0
         # Inner loop, do for every city except the last
-        for _ in range(N - 1):
+        for city_count in range(N):
+            # halting condition. If we are at the last city, we need to return to the starting city
+            if city_count == N - 1:
+                visited_cities.append(current_city)
+                total_distance = (
+                    total_distance + city_distance_matrix[current_city, i]
+                )  # Return to the starting city given by column i of the row of the current city
+                break
             row = np.copy(
                 city_distance_matrix[current_city]
             )  # Deep copy of the row of distances for the current city
@@ -69,27 +73,25 @@ def solve_tsp(N):
             )  # Add the current city to the list of visited cities
             current_city = closest_city
 
-        total_distance = (
-            total_distance + city_distance_matrix[current_city, i]
-        )  # Return to the starting city given by column i of the row of the current city
-
         distances.append(city_distance_matrix[current_city, i])  # for logging
 
         results[i] = {
-            "total_distance": round(total_distance),
-            "visited_cities": visited_cities,
-            "distances": distances,
+            "chromosome": visited_cities,
+            "total_distance": total_distance,
         }
-        all_distances.append(total_distance)
 
-    closest_city_distance = min(all_distances)
+    min_distance_index = min(results, key=lambda x: results[x]["total_distance"])
 
-    [print(results[i]) for i in results]
-    return closest_city_distance
+    return results[min_distance_index]
 
 
 if __name__ == "__main__":
     N = 10  # Number of cities
-    shortest_distance = solve_tsp(N)
-    print(f"Shortest tour distance: {round(shortest_distance)} miles")
-    visualize_distance_matrix(generate_distance_matrix(N))
+    cities = generate_distance_matrix(N)
+    candidate_chromosome = solve_tsp(N, cities)
+    print(
+        f"""The chromosome with the shortest route is 
+        {candidate_chromosome['visited_cities']} 
+        with {candidate_chromosome['total_distance']} miles"""
+    )
+    visualize_distance_matrix(cities)

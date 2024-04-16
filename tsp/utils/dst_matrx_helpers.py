@@ -26,6 +26,7 @@ class TSPMapGen:
         decay_factor=0.95,
         density_increase=2,
         neighbor_weight=0.5,
+        rng_seed=42,
     ):
         self.space_size = space_size
         self.strata_grid_size = strata_grid_size
@@ -33,7 +34,7 @@ class TSPMapGen:
         self.density_increase = density_increase
         self.neighbor_weight = neighbor_weight
         self.strata_density = np.ones((strata_grid_size, strata_grid_size))
-        self.rng = np.random.default_rng(12345)
+        self.rng = np.random.default_rng(rng_seed)
 
     def calculate_average_neighbor_density(self, i, j) -> np.float64:
         """
@@ -141,7 +142,7 @@ def visualize_distance_matrix(distance_matrix):
     plt.show()
 
 
-def generate_distance_matrix(size=10):
+def generate_distance_matrix(size=10, rng_seed=42):
     """
     Generates a distance matrix for a given number of points.
 
@@ -151,7 +152,7 @@ def generate_distance_matrix(size=10):
     Returns:
         numpy.ndarray: A 2D array representing the distance matrix.
     """
-    tps_map_gen = TSPMapGen(size)
+    tps_map_gen = TSPMapGen(size, rng_seed)
     points = []
     for _ in range(size):
         point = tps_map_gen.place_point()
