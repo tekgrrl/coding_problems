@@ -25,7 +25,7 @@ class TSPMapGen:
         rng_seed,
     ):
         self.space_size = space_size
-        self.strata_grid_size = 5
+        self.strata_grid_size = 100
         self.decay_factor = 0.95
         self.density_increase = 2
         self.neighbor_weight = 0.5

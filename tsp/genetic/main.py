@@ -290,7 +290,7 @@ def replace_with_elites(new_population, old_population, city_matrix, elite_count
     return sorted_new_population
 
 
-def run_genetic_algorithm(population_size, city_matrix, generations, logs):
+def run_genetic_algorithm(population_size, city_matrix, logs):
     """
     Run a genetic algorithm to solve the Travelling Salesman Problem.
     Args:
@@ -301,16 +301,16 @@ def run_genetic_algorithm(population_size, city_matrix, generations, logs):
         result object. This contains the best chromome and the total distance for that
         chromosome.
     """
-
+    MAX_GENS = 500
     rng = np.random.default_rng(12345)
     population = create_population(
         population_size, city_matrix
     )  # Create the initial population
     fitnesses = get_fitnesses(population, city_matrix)
-    count = 0
-    for _ in range(generations):
+
+    generation_count = 0  # setup for the loops
+    for _ in range(MAX_GENS):
         roulette_wheel = create_roulette_wheel(population, fitnesses)
-        # print(f"Roulette Wheel: {roulette_wheel}")
         new_population = []
         for _ in range(population_size // 2):
             parent1 = select_chromosome(roulette_wheel, population, rng)
@@ -321,12 +321,7 @@ def run_genetic_algorithm(population_size, city_matrix, generations, logs):
             new_population.extend([child1, child2])
 
         elite_count = 16  # TUNABLE PARAMETER
-        diversity_ratio = check_diversity(new_population)
 
-        # promoting elites
-        fitnesses = get_fitnesses(population, city_matrix)
-        # print(f"Average fitneses 1: {np.mean(fitnesses)}")
-        # print("Promoting elites")
         new_population = replace_with_elites(
             new_population,
             population,
@@ -336,19 +331,21 @@ def run_genetic_algorithm(population_size, city_matrix, generations, logs):
         )
         population = new_population
         fitnesses = get_fitnesses(population, city_matrix)
-        # print(f"Average fitneses 2: {np.mean(fitnesses)}")
-        # Log the best, worst and average fitness values
+
         logs["best_fitness"].append(np.max(fitnesses))
         logs["worst_fitness"].append(np.min(fitnesses))
         logs["average_fitness"].append(np.mean(fitnesses))
 
-        count += 1
+        generation_count += 1
         # check stopping condition, i.e.: there has been no improvement in the best fitness for the last 10 generations
         if len(logs["best_fitness"]) > 10:
             if len(set(logs["best_fitness"][-10:])) == 1:
                 break
 
-    print(f"generations = [{count}]")
+    if generation_count == MAX_GENS:
+        print("Maximum generations reached")
+    else:
+        print(f"Converged after {generation_count} generations")
     # should return the best chromosome and the total distance for that chromosome
     best_chromosome_idx = np.argmax(fitnesses)
     best_chromosome = population[best_chromosome_idx]
@@ -375,19 +372,16 @@ def display_results(label, result, num_gens=None):
 if __name__ == "__main__":
     num_cities = 20  # TUNABLE PARAMETER
     population_size = num_cities * 3  # TUNABLE PARAMETER
-    num_gens = 100  # TUNABLE PARAMETER
     logs = {"best_fitness": [], "worst_fitness": [], "average_fitness": []}
 
-    random_seed = 100  # TUNABLE PARAMETER
+    random_seed = 200  # TUNABLE PARAMETER
     city_matrix_data = generate_distance_matrix(num_cities, random_seed)
-    visualize_distance_matrix(city_matrix_data)
+    # visualize_distance_matrix(city_matrix_data)
     greedy_result = solve_tsp(num_cities, city_matrix_data)
-    display_results("Greedy", greedy_result, num_gens)
+    display_results("Greedy", greedy_result)
 
-    genetic_result = run_genetic_algorithm(
-        population_size, city_matrix_data, num_gens, logs
-    )
-    display_results("Genetic", genetic_result, num_gens)
+    genetic_result = run_genetic_algorithm(population_size, city_matrix_data, logs)
+    display_results("Genetic", genetic_result)
 
     plt.figure(figsize=(10, 5))
     plt.plot(logs["best_fitness"], label="Best Fitness")
