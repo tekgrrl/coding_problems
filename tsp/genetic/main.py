@@ -263,6 +263,20 @@ def check_diversity(population):
 
 
 def replace_with_elites(new_population, old_population, city_matrix, elite_count, rng):
+    """
+    Replaces a portion of the new population with the elite individuals from the old population.
+
+    Args:
+        new_population (list): The new population of individuals.
+        old_population (list): The old population of individuals.
+        city_matrix (list): The matrix representing the distances between cities.
+        elite_count (int): The number of elite individuals to replace.
+        rng (random.Random): The random number generator.
+
+    Returns:
+        list: The updated population with elite individuals replaced.
+
+    """
     sorted_old_population = sorted(
         old_population, key=lambda x: determine_fitness(x, city_matrix), reverse=True
     )
@@ -293,6 +307,7 @@ def run_genetic_algorithm(population_size, city_matrix, generations, logs):
         population_size, city_matrix
     )  # Create the initial population
     fitnesses = get_fitnesses(population, city_matrix)
+    count = 0
     for _ in range(generations):
         roulette_wheel = create_roulette_wheel(population, fitnesses)
         # print(f"Roulette Wheel: {roulette_wheel}")
@@ -304,10 +319,8 @@ def run_genetic_algorithm(population_size, city_matrix, generations, logs):
                 parent2 = select_chromosome(roulette_wheel, population, rng)
             child1, child2 = two_point_crossover(parent1, parent2, rng)
             new_population.extend([child1, child2])
-        # fittest = find_fittest_chromosome_in_population(population, city_matrix)
-        # least_fit = find_least_fit_chromosome_in_population(new_population, city_matrix)
 
-        elite_count = 4  # TUNABLE PARAMETER
+        elite_count = 16  # TUNABLE PARAMETER
         diversity_ratio = check_diversity(new_population)
 
         # promoting elites
@@ -329,6 +342,13 @@ def run_genetic_algorithm(population_size, city_matrix, generations, logs):
         logs["worst_fitness"].append(np.min(fitnesses))
         logs["average_fitness"].append(np.mean(fitnesses))
 
+        count += 1
+        # check stopping condition, i.e.: there has been no improvement in the best fitness for the last 10 generations
+        if len(logs["best_fitness"]) > 10:
+            if len(set(logs["best_fitness"][-10:])) == 1:
+                break
+
+    print(f"generations = [{count}]")
     # should return the best chromosome and the total distance for that chromosome
     best_chromosome_idx = np.argmax(fitnesses)
     best_chromosome = population[best_chromosome_idx]
@@ -353,19 +373,21 @@ def display_results(label, result, num_gens=None):
 
 
 if __name__ == "__main__":
-    num_cities = 10  # TUNABLE PARAMETER
-    population_size = num_cities * 6  # TUNABLE PARAMETER
-    num_gens = 35  # TUNABLE PARAMETER
+    num_cities = 20  # TUNABLE PARAMETER
+    population_size = num_cities * 3  # TUNABLE PARAMETER
+    num_gens = 100  # TUNABLE PARAMETER
     logs = {"best_fitness": [], "worst_fitness": [], "average_fitness": []}
 
-    random_seed = 600  # TUNABLE PARAMETER
+    random_seed = 100  # TUNABLE PARAMETER
     city_matrix_data = generate_distance_matrix(num_cities, random_seed)
+    visualize_distance_matrix(city_matrix_data)
     greedy_result = solve_tsp(num_cities, city_matrix_data)
-    display_results("Greedy", greedy_result)
+    display_results("Greedy", greedy_result, num_gens)
 
-    genetic_result = run_genetic_algorithm(num_cities, city_matrix_data, num_gens, logs)
+    genetic_result = run_genetic_algorithm(
+        population_size, city_matrix_data, num_gens, logs
+    )
     display_results("Genetic", genetic_result, num_gens)
-    # visualize_distance_matrix(city_matrix_data)
 
     plt.figure(figsize=(10, 5))
     plt.plot(logs["best_fitness"], label="Best Fitness")

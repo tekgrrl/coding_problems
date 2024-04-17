@@ -21,19 +21,15 @@ class TSPMapGen:
 
     def __init__(
         self,
-        space_size=10,
-        strata_grid_size=5,
-        decay_factor=0.95,
-        density_increase=2,
-        neighbor_weight=0.5,
-        rng_seed=42,
+        space_size,
+        rng_seed,
     ):
         self.space_size = space_size
-        self.strata_grid_size = strata_grid_size
-        self.decay_factor = decay_factor
-        self.density_increase = density_increase
-        self.neighbor_weight = neighbor_weight
-        self.strata_density = np.ones((strata_grid_size, strata_grid_size))
+        self.strata_grid_size = 5
+        self.decay_factor = 0.95
+        self.density_increase = 2
+        self.neighbor_weight = 0.5
+        self.strata_density = np.ones((self.strata_grid_size, self.strata_grid_size))
         self.rng = np.random.default_rng(rng_seed)
 
     def calculate_average_neighbor_density(self, i, j) -> np.float64:
@@ -158,14 +154,9 @@ def generate_distance_matrix(size=10, rng_seed=42):
         point = tps_map_gen.place_point()
         points.append(point)
 
-    return tps_map_gen.calculate_distance_matrix(points)
-
-
-if __name__ == "__main__":
-    dmatrix = generate_distance_matrix(20)
-    print(dmatrix)
-
-    visualize_distance_matrix(dmatrix)
+    matrix = tps_map_gen.calculate_distance_matrix(points)
+    print("Matrix generated successfully!")
+    return matrix
 
 
 def test_triangle_inequality(distance_matrix):
@@ -187,3 +178,68 @@ def test_triangle_inequality(distance_matrix):
         and distance_matrix[a, c] + distance_matrix[c, b] >= distance_matrix[a, b]
         and distance_matrix[b, a] + distance_matrix[a, c] >= distance_matrix[b, c]
     )
+
+
+def analyze_distance_matrix(distance_matrix):
+    """
+    Analyzes a distance matrix by performing statistical analysis and plotting the distribution of distances.
+
+    Parameters:
+    - distance_matrix (numpy.ndarray): The distance matrix to be analyzed.
+
+    Returns:
+    - stats (dict): A dictionary containing the statistical analysis results, including mean, standard deviation,
+                    minimum, and maximum distances.
+
+    """
+    # Flatten the matrix and filter out zeros and redundant values (upper triangle)
+    triu_indices = np.triu_indices_from(distance_matrix, k=1)
+    distances = distance_matrix[triu_indices]
+
+    # Statistical analysis
+    stats = {
+        "mean": np.mean(distances),
+        "std": np.std(distances),
+        "min": np.min(distances),
+        "max": np.max(distances),
+    }
+
+    # Plotting the distribution of distances
+    plt.figure(figsize=(10, 5))
+    sns.histplot(distances, kde=True)
+    plt.title("Distribution of Distances")
+    plt.xlabel("Distance")
+    plt.ylabel("Frequency")
+    plt.show()
+
+    return stats
+
+
+def calculate_uniformity(distance_matrix):
+    """
+    Calculates the uniformity score of a distance matrix.
+    Crude implementation of the coefficient of variation (CV) for the distances.
+
+    Not very useful currently
+    """
+    triu_indices = np.triu_indices_from(distance_matrix, k=1)
+    distances = distance_matrix[triu_indices]
+    mean_distance = np.mean(distances)
+    std_deviation = np.std(distances)
+    cv = std_deviation / mean_distance if mean_distance != 0 else 0
+    uniformity_score = (
+        1 - cv
+    )  # Inverse of CV for a 'uniformity' metric (higher is more uniform)
+    return uniformity_score
+
+
+if __name__ == "__main__":
+    dmatrix = generate_distance_matrix(10, 100)
+    # print(dmatrix)
+
+    print(f"triangle equality? = {test_triangle_inequality(dmatrix)}")
+    # visualize_distance_matrix(dmatrix)
+    stats = analyze_distance_matrix(dmatrix)
+    print(stats)
+    uniformity_score = calculate_uniformity(dmatrix)
+    print(f"Matrix uniformity score = {uniformity_score:.2f}")
