@@ -8,6 +8,7 @@ from tsp.utils.dst_matrx_helpers import (
     visualize_distance_matrix,
 )
 from tsp.greedy.main import solve_tsp
+from tsp.utils.tsp import TravelingSalesmanProblem
 
 
 # Notes:
@@ -114,10 +115,17 @@ def select_chromosome(roulette_wheel, population, rng):
     Select a chromosome from the population based on the roulette wheel.
     """
     random_number = rng.random()
+
     index = np.searchsorted(roulette_wheel, random_number)
     # print(f"Random Number: {random_number}, Selected Index: {index}")
 
     return population[index]
+
+
+def stochastic_universal_sampling(roulette_wheel, population, rng):
+    random_number = rng.random()
+    # Generate four more numbers that are equally spaced between 0 and 1
+    numbers = np.linspace(random_number, 1, 5)[1:]
 
 
 def crossover(parent1, parent2):
@@ -204,6 +212,8 @@ def find_least_fit_chromosome_in_population(population, city_matrix):
     return population[least_fit_chromosome_index]
 
 
+# TODO This standalone function is not as good as the separate two_point_crossover()
+# and mutate() functions. They are different, not just separate
 def two_point_crossover_with_mutation(parent1, parent2, rng):
     """
     Perform 2 point crossover between two parents to create two offspring.
@@ -220,7 +230,6 @@ def two_point_crossover_with_mutation(parent1, parent2, rng):
     slice1, slice2 = parent2[cx1 : cx2 + 1], parent1[cx1 : cx2 + 1]
 
     # Mutation
-    # TODO break out to separate function
     if rng.random() < 0.25:  # 25% chance of mutation
         mutation_type = rng.choice(2)  # Choose between two types of mutation
         if mutation_type == 0:  # Reverse the slice
@@ -308,6 +317,12 @@ def run_genetic_algorithm(population_size, city_matrix, logs):
     )  # Create the initial population
     fitnesses = get_fitnesses(population, city_matrix)
 
+    # TODO: scale elites with cities likely needs an additional scaling factor
+
+    #  elite_count = int((city_matrix.shape[0] / 2) + (city_matrix.shape[0] * 0.3))
+
+    elite_count = 16  # 16 works great for 20 cities
+
     generation_count = 0  # setup for the loops
     for _ in range(MAX_GENS):
         roulette_wheel = create_roulette_wheel(population, fitnesses)
@@ -320,13 +335,11 @@ def run_genetic_algorithm(population_size, city_matrix, logs):
             child1, child2 = two_point_crossover(parent1, parent2, rng)
             new_population.extend([child1, child2])
 
-        elite_count = 16  # TUNABLE PARAMETER
-
         new_population = replace_with_elites(
             new_population,
             population,
             city_matrix,
-            elite_count=elite_count,
+            elite_count,
             rng=rng,
         )
         population = new_population
@@ -375,7 +388,15 @@ if __name__ == "__main__":
     logs = {"best_fitness": [], "worst_fitness": [], "average_fitness": []}
 
     random_seed = 200  # TUNABLE PARAMETER
-    city_matrix_data = generate_distance_matrix(num_cities, random_seed)
+
+    # Randomly generated city distance matrix
+    # city_matrix_data = generate_distance_matrix(num_cities, random_seed)
+
+    # Using TSPLIB data
+    # TODO data is borked, gives truncated chromosomes
+    tsp = TravelingSalesmanProblem("bayg29")
+    city_matrix_data = np.array(tsp.distances)
+
     # visualize_distance_matrix(city_matrix_data)
     greedy_result = solve_tsp(num_cities, city_matrix_data)
     display_results("Greedy", greedy_result)
