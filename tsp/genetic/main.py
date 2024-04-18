@@ -275,19 +275,23 @@ def check_diversity(population):
 
 
 def promote_unique_elite(elite_chromosome, population, city_matrix):
+
+    similarity_threshold = len(elite_chromosome) * 0.1  # TUNABLE PARAMETER
+
     # Convert chromosomes to tuples for easy comparison
     population_set = {tuple(chromosome) for chromosome in population}
     elite_tuple = tuple(elite_chromosome)
 
-    # Check if the elite chromosome is unique in the current population
-    if elite_tuple not in population_set:
+    for individual in population:
+        if permutation_distance(elite_chromosome, individual) < similarity_threshold:
+            return False  # Do not promote this elite as it's not unique enough
+
         # Replace the least fit individual with the unique elite
-        least_fit_idx = np.argmin(
-            [determine_fitness(chromosome, city_matrix) for chromosome in population]
-        )
-        population[least_fit_idx] = elite_chromosome
-        return True  # Elite was promoted
-    return False  # Elite was not promoted, already exists
+    least_fit_idx = np.argmin(
+        [determine_fitness(chromosome, city_matrix) for chromosome in population]
+    )
+    population[least_fit_idx] = elite_chromosome
+    return True  # Elite was promoted
 
 
 def replace_with_elites(new_population, old_population, city_matrix, elite_count, rng):
@@ -457,7 +461,6 @@ if __name__ == "__main__":
     # city_matrix_data = generate_distance_matrix(num_cities, random_seed)
 
     # Using TSPLIB data
-    # TODO data is borked, gives truncated chromosomes
     tsp = TravelingSalesmanProblem("bayg29")  # optimal distance 9074.147
     city_matrix_data = np.array(tsp.distances)
 
