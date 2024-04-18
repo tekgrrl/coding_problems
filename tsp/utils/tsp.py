@@ -169,6 +169,7 @@ def main():
     # randomSolution = random.sample(range(len(tsp)), len(tsp))
 
     # see http://elib.zib.de/pub/mp-testdata/tsp/tsplib/tsp/bayg29.opt.tour
+
     optimalSolution = [
         0,
         27,

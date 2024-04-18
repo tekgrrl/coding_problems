@@ -1,12 +1,14 @@
 """This module implements a genetic algorithm to solve the Travelling Salesman Problem."""
 
-import random
+from json import tool
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 from tsp.utils.dst_matrx_helpers import (
     generate_distance_matrix,
     visualize_distance_matrix,
 )
+
 from tsp.greedy.main import solve_tsp
 from tsp.utils.tsp import TravelingSalesmanProblem
 
@@ -29,11 +31,12 @@ def create_population(population_size, city_matrix):
         list: A list of randomly generated chromosomes.
 
     """
-    rng = np.random.default_rng(12345)  # should use the same random seed everywhere
+    rng = np.random.default_rng()  # should use the same random seed everywhere
     population = []
     for i in range(population_size):
         chromosome = rng.permutation(len(city_matrix))
         population.append(chromosome)
+
     return population
 
 
@@ -153,7 +156,7 @@ def crossover(parent1, parent2):
 
 
 def mutate(slice, rng):
-    mutation_frequency = 0.25  # TUNABLE PARAMETER
+    mutation_frequency = 0.2  # TUNABLE PARAMETER
     if rng.random() < mutation_frequency:  # Mutation chance
         mutation_type = rng.choice(2)
         if mutation_type == 0:
@@ -165,7 +168,7 @@ def mutate(slice, rng):
 
 
 def two_point_crossover(parent1, parent2, rng):
-    size = len(parent1)  # TUNABLE PARAMETER
+    size = len(parent1)
     cx1, cx2 = sorted(rng.choice(size, 2, replace=False))
 
     # Slices and mutatez
@@ -271,6 +274,22 @@ def check_diversity(population):
     return diversity_ratio
 
 
+def promote_unique_elite(elite_chromosome, population, city_matrix):
+    # Convert chromosomes to tuples for easy comparison
+    population_set = {tuple(chromosome) for chromosome in population}
+    elite_tuple = tuple(elite_chromosome)
+
+    # Check if the elite chromosome is unique in the current population
+    if elite_tuple not in population_set:
+        # Replace the least fit individual with the unique elite
+        least_fit_idx = np.argmin(
+            [determine_fitness(chromosome, city_matrix) for chromosome in population]
+        )
+        population[least_fit_idx] = elite_chromosome
+        return True  # Elite was promoted
+    return False  # Elite was not promoted, already exists
+
+
 def replace_with_elites(new_population, old_population, city_matrix, elite_count, rng):
     """
     Replaces a portion of the new population with the elite individuals from the old population.
@@ -286,20 +305,23 @@ def replace_with_elites(new_population, old_population, city_matrix, elite_count
         list: The updated population with elite individuals replaced.
 
     """
+
     sorted_old_population = sorted(
         old_population, key=lambda x: determine_fitness(x, city_matrix), reverse=True
     )
-    sorted_new_population = sorted(
-        new_population, key=lambda x: determine_fitness(x, city_matrix)
-    )
+
+    elites_promoted = 0
     for i in range(elite_count):
-        sorted_new_population[i] = sorted_old_population[i]
+        if promote_unique_elite(sorted_old_population[i], new_population, city_matrix):
+            elites_promoted += 1
+
+    print(f"Promoted {elites_promoted} elite individuals to the new population")
     # Ensure the new population is shuffled to maintain genetic diversity
-    rng.shuffle(sorted_new_population)
-    return sorted_new_population
+    rng.shuffle(new_population)
+    return new_population
 
 
-def run_genetic_algorithm(population_size, city_matrix, logs):
+def run_genetic_algorithm(city_matrix, logs):
     """
     Run a genetic algorithm to solve the Travelling Salesman Problem.
     Args:
@@ -312,18 +334,16 @@ def run_genetic_algorithm(population_size, city_matrix, logs):
     """
     MAX_GENS = 500
     rng = np.random.default_rng(12345)
+    population_size = city_matrix.shape[0] * 2  # TUNABLE PARAMETER
     population = create_population(
         population_size, city_matrix
     )  # Create the initial population
     fitnesses = get_fitnesses(population, city_matrix)
 
-    # TODO: scale elites with cities likely needs an additional scaling factor
-
-    #  elite_count = int((city_matrix.shape[0] / 2) + (city_matrix.shape[0] * 0.3))
-
-    elite_count = 16  # 16 works great for 20 cities
+    elite_count = 20  # 16 works great for 20 cities
 
     generation_count = 0  # setup for the loops
+    last_five_populations = []  # list to store the last five populations
     for _ in range(MAX_GENS):
         roulette_wheel = create_roulette_wheel(population, fitnesses)
         new_population = []
@@ -345,6 +365,19 @@ def run_genetic_algorithm(population_size, city_matrix, logs):
         population = new_population
         fitnesses = get_fitnesses(population, city_matrix)
 
+        diversity_score = analyze_diversity(population, city_matrix)
+        diversity_ratio = check_diversity(population)
+
+        print(
+            f"Population {generation_count} Diversity Score: {diversity_score} Diversity Ratio: {diversity_ratio}"
+        )
+
+        # Add the current population to the list of last five populations
+        last_five_populations.append(population)
+        # If we have more than 5 populations in the list, remove the oldest one
+        if len(last_five_populations) > 5:
+            last_five_populations.pop(0)
+
         logs["best_fitness"].append(np.max(fitnesses))
         logs["worst_fitness"].append(np.min(fitnesses))
         logs["average_fitness"].append(np.mean(fitnesses))
@@ -354,7 +387,10 @@ def run_genetic_algorithm(population_size, city_matrix, logs):
         if len(logs["best_fitness"]) > 10:
             if len(set(logs["best_fitness"][-10:])) == 1:
                 break
+    # Add the last five populations to the logs
+    logs["last_five_populations"] = last_five_populations
 
+    # Handle stopping condition
     if generation_count == MAX_GENS:
         print("Maximum generations reached")
     else:
@@ -372,20 +408,48 @@ def run_genetic_algorithm(population_size, city_matrix, logs):
     }
 
 
-def display_results(label, result, num_gens=None):
-    print()
+def display_results(label, result, logs=None, num_gens=None):
     if num_gens is not None:
         print(f"{label} algorithm results (num_gens={num_gens}):")
     else:
         print(f"{label} algorithm results:")
     print(f"Best chromosome: {result['chromosome']}")
     print(f"Total distance: {result['total_distance']}")
+    print()
+
+    if logs is not None:
+        plt.figure(figsize=(10, 5))
+        plt.plot(logs["best_fitness"], label="Best Fitness")
+        plt.plot(logs["average_fitness"], label="Average Fitness")
+        plt.plot(logs["worst_fitness"], label="Worst Fitness")
+        plt.xlabel("Generation")
+        plt.ylabel("Fitness")
+        plt.title("Fitness over Generations")
+        plt.legend()
+        plt.show()
+
+
+def permutation_distance(chromosome1, chromosome2):
+    # For TSP, a simple measure could be the count of different positions
+    return sum(c1 != c2 for c1, c2 in zip(chromosome1, chromosome2))
+
+
+def analyze_diversity(population, city_matrix):
+    # Sort population based on fitness or any other criterion
+    sorted_population = sorted(
+        population, key=lambda x: determine_fitness(x, city_matrix)
+    )
+    # Calculate distances between consecutive chromosomes
+    distances = [
+        permutation_distance(sorted_population[i], sorted_population[i + 1])
+        for i in range(len(sorted_population) - 1)
+    ]
+    # Average distance is a measure of diversity
+    average_distance = sum(distances) / len(distances)
+    return average_distance
 
 
 if __name__ == "__main__":
-    num_cities = 20  # TUNABLE PARAMETER
-    population_size = num_cities * 3  # TUNABLE PARAMETER
-    logs = {"best_fitness": [], "worst_fitness": [], "average_fitness": []}
 
     random_seed = 200  # TUNABLE PARAMETER
 
@@ -394,22 +458,20 @@ if __name__ == "__main__":
 
     # Using TSPLIB data
     # TODO data is borked, gives truncated chromosomes
-    tsp = TravelingSalesmanProblem("bayg29")
+    tsp = TravelingSalesmanProblem("bayg29")  # optimal distance 9074.147
     city_matrix_data = np.array(tsp.distances)
 
+    logs = {"best_fitness": [], "worst_fitness": [], "average_fitness": []}
+
     # visualize_distance_matrix(city_matrix_data)
-    greedy_result = solve_tsp(num_cities, city_matrix_data)
+    greedy_result = solve_tsp(city_matrix_data)
     display_results("Greedy", greedy_result)
 
-    genetic_result = run_genetic_algorithm(population_size, city_matrix_data, logs)
-    display_results("Genetic", genetic_result)
+    genetic_result = run_genetic_algorithm(city_matrix_data, logs)
+    display_results("Genetic", genetic_result, logs)
 
-    plt.figure(figsize=(10, 5))
-    plt.plot(logs["best_fitness"], label="Best Fitness")
-    plt.plot(logs["average_fitness"], label="Average Fitness")
-    plt.plot(logs["worst_fitness"], label="Worst Fitness")
-    plt.xlabel("Generation")
-    plt.ylabel("Fitness")
-    plt.title("Fitness over Generations")
-    plt.legend()
-    plt.show()
+    # Assuming you have a current_population variable containing the current generation's population
+    # for i in range(len(logs["last_five_populations"])):
+    #     current_population = logs["last_five_populations"][i]
+    #     diversity_score = analyze_diversity(current_population, city_matrix_data)
+    #     print(f"Population {i} Diversity Score: {diversity_score}")

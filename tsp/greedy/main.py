@@ -7,13 +7,12 @@ from tsp.utils.dst_matrx_helpers import (
 )
 
 
-def solve_tsp(N, city_distance_matrix):
+def solve_tsp(city_distance_matrix):
     """
     Solve the Traveling Salesman Problem (TSP) using a heuristic approach.
 
     Args:
-      N (int): Number of cities.
-
+        city_distance_matrix (numpy.ndarray): A 2D array representing the distances between each pair of cities.
     Returns:
       float: Shortest tour distance in miles.
 
@@ -34,18 +33,18 @@ def solve_tsp(N, city_distance_matrix):
     """
 
     results = {}
-
+    num_cities = city_distance_matrix.shape[0]
     # Outer loop, do for every city in order
-    for i in range(N):
+    for i in range(num_cities):
         # Per loop setup
         current_city = i
         visited_cities = []
         distances = []
         total_distance = 0
         # Inner loop, do for every city except the last
-        for city_count in range(N):
+        for city_count in range(num_cities):
             # halting condition. If we are at the last city, we need to return to the starting city
-            if city_count == N - 1:
+            if city_count == num_cities - 1:
                 visited_cities.append(current_city)
                 total_distance = (
                     total_distance + city_distance_matrix[current_city, i]
