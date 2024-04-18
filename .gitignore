@@ -174,3 +174,4 @@ pyvenv.cfg
 pip-selfcheck.json
 tsp/share/man/man1/ttx.1
 *.pickle
+.DS_Store
