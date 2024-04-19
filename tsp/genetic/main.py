@@ -126,9 +126,19 @@ def select_chromosome(roulette_wheel, population, rng):
 
 
 def stochastic_universal_sampling(roulette_wheel, population, rng):
+    population_size = len(population)
     random_number = rng.random()
-    # Generate four more numbers that are equally spaced between 0 and 1
-    numbers = np.linspace(random_number, 1, 5)[1:]
+    # generate a random number between 0 and (1/len(population))
+    step_size = 1 / population_size
+    random_number *= step_size
+
+    # Generate population_size more numbers that are equally spaced between 0 and 1
+    points = [random_number + i * step_size for i in range(population_size)]
+    # return the set of chromosomes that are closest to the points
+    selected_chromosomes = [
+        population[np.searchsorted(roulette_wheel, point)] for point in points
+    ]
+    return selected_chromosomes
 
 
 def crossover(parent1, parent2):
@@ -343,21 +353,34 @@ def run_genetic_algorithm(city_matrix, logs):
         population_size, city_matrix
     )  # Create the initial population
     fitnesses = get_fitnesses(population, city_matrix)
-
     elite_count = 20  # 16 works great for 20 cities
 
     generation_count = 0  # setup for the loops
     last_five_populations = []  # list to store the last five populations
     for _ in range(MAX_GENS):
         roulette_wheel = create_roulette_wheel(population, fitnesses)
+
         new_population = []
-        for _ in range(population_size // 2):
-            parent1 = select_chromosome(roulette_wheel, population, rng)
-            parent2 = select_chromosome(roulette_wheel, population, rng)
-            while np.array_equal(parent1, parent2):
-                parent2 = select_chromosome(roulette_wheel, population, rng)
+
+        # Stochastic Universal Sampling
+        selected_chromosomes = stochastic_universal_sampling(
+            roulette_wheel, population, rng
+        )
+        for i in range(0, len(selected_chromosomes), 2):
+            parent1 = selected_chromosomes[i]
+            parent2 = selected_chromosomes[i + 1]
             child1, child2 = two_point_crossover(parent1, parent2, rng)
             new_population.extend([child1, child2])
+
+        # Roulette Wheel Selection
+        # roulette_wheel = create_roulette_wheel(population, fitnesses)
+        # for _ in range(population_size // 2):
+        #     parent1 = select_chromosome(roulette_wheel, population, rng)
+        #     parent2 = select_chromosome(roulette_wheel, population, rng)
+        #     while np.array_equal(parent1, parent2):
+        #         parent2 = select_chromosome(roulette_wheel, population, rng)
+        #     child1, child2 = two_point_crossover(parent1, parent2, rng)
+        #     new_population.extend([child1, child2])
 
         new_population = replace_with_elites(
             new_population,
