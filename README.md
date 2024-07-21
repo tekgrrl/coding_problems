@@ -1,3 +1,4 @@
+```
 ### Python Challenges
 1. **Simple Calculator** - Write a Python script that takes two numbers and a basic arithmetic operation (add, subtract, multiply, divide) as input and outputs the result.
 2. **List Comprehensions** - Use list comprehensions to generate a list of squares of the first 10 positive integers.
@@ -70,3 +71,4 @@ random walk (sequence of random steps) on a graph with given nodes and edges.
 
 20. **C/ C++ (or your choice):** Implement a simple, command-line-based game like Tic-Tac-Toe
 or Hangman using the language of your choice.
+```
