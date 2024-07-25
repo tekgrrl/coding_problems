@@ -144,3 +144,6 @@ dist
 # test data
 tsp-data/
 .DS_Store
+auth_api/.env
+auth_api/.env.dev
+auth_api/.env.test
